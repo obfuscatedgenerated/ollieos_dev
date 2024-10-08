@@ -1,0 +1,23 @@
+{
+  "name": "hwpkg",
+  "version": "1.0.1",
+  "description": "An example package named hwpkg that prints a hello message for OllieOS.",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "webpack --mode=production",
+    "watch": "webpack --watch"
+  },
+  "author": "obfuscatedgenerated",
+  "license": "MIT",
+  "dependencies": {
+    "ollieos": "github:obfuscatedgenerated/obfuscatedgenerated.github.io"
+  },
+  "devDependencies": {
+    "ollieos_pkgbuild": "github:obfuscatedgenerated/ollieos_pkgbuild",
+    "webpack-cli": "^5.1.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obfuscatedgenerated/ollieos_test_pkg.git"
+  }
+}
