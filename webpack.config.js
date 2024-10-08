@@ -7,8 +7,8 @@ const pkgbuild = require("ollieos_pkgbuild");
 // key: the name of the program
 // value: the path to the entry point
 const programs = {
-    "hwpkg": "./src/index.ts",
-    // "hwpkg2": "./src/index.ts",
+    "nointro": "./src/nointro.ts",
+    "jsdbg": "./src/jsdbg.ts",
 };
 
 // EDIT THIS ARRAY TO ADD DEPENDENCIES FOR THE VERSION CURRENTLY BEING BUILT

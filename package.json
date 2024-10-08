@@ -1,8 +1,7 @@
 {
-  "name": "hwpkg",
-  "version": "1.0.1",
-  "description": "An example package named hwpkg that prints a hello message for OllieOS.",
-  "main": "./src/index.ts",
+  "name": "dev",
+  "version": "1.0.0",
+  "description": "The OllieOS development tool group.",
   "scripts": {
     "build": "webpack --mode=production",
     "watch": "webpack --watch"
