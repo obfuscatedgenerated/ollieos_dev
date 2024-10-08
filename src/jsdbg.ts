@@ -1,9 +1,11 @@
 import type { Program } from "ollieos/src/types";
 import { ANSI } from "ollieos/src/term_ctl";
 
+// TODO: figure out how to fix webpack to stop yelling critical dependency warnings and bundling a lot of objects we don't need
+
 export default {
     name: "jsdbg",
-    description: "Redirects the JavaScript console to the terminal until the OS is restarted. Add me to .ollie_profile to catch logs at mount time!",
+    description: "Redirects the JavaScript console to the terminal until the OS is restarted. Add me to .ollierc to make it permanent (only runs after mount time, check JS console for mount issues).",
     usage_suffix: "",
     arg_descriptions: {},
     main: async (data) => {
@@ -12,6 +14,10 @@ export default {
 
         // extract from ANSI to make code less verbose
         const { FG, STYLE } = ANSI;
+
+        // TODO: should this be moved to a feature of the OS? can use localStorage to store the state instead of using ollierc permananece, and easier toggling off.
+        //  would also allow us to output mount time errors to the terminal
+        // consider this!!! ^^^^^
 
         const js_log = console.log;
         console.log = (...args: any[]) => {
