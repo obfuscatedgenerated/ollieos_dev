@@ -35,7 +35,8 @@ export default {
 
         const js_error = console.error;
         console.error = (...args: any[]) => {
-            const str = args.map(arg => typeof arg === "string" ? arg : JSON.stringify(arg)).join(" ");
+            // if arg is an Error object, extract the message, otherwise stringify as usual (console.error call)
+            const str = args.map(arg => arg instanceof Error ? arg.message : typeof arg === "string" ? arg : JSON.stringify(arg)).join(" ");
             term.writeln(`${FG.red + STYLE.dim}[JS error] ${str}${STYLE.reset_all}`);
             js_error.apply(console, args);
         };
