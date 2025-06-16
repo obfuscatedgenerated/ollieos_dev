@@ -32,7 +32,11 @@ export default {
         const content = fs.read_file(path) as string;
 
         const registry = term.get_program_registry();
-        mount_and_register_with_output(path, content, registry, term, true);
+
+        // important note: for some reason webpack fucks up and drops the webpackIgnore: true
+        // you need to go into the exported bundle and edit anything like t(366) back to import
+        // TODO: dont ask why, this needs fixing
+        await mount_and_register_with_output(path, content, registry, term, true);
 
         return 0;
     }
