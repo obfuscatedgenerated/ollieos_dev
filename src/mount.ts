@@ -22,7 +22,7 @@ export default {
         }
 
         const fs = term.get_fs();
-        const path = args[0];
+        const path = fs.absolute(args[0]);
 
         if (!fs.exists(path)) {
             term.writeln(`${PREFABS.error}Path '${path}' does not exist.${STYLE.reset_all}`);
