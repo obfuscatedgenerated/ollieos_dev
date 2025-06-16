@@ -9,6 +9,7 @@ const pkgbuild = require("ollieos_pkgbuild");
 const programs = {
     "nointro": "./src/nointro.ts",
     "jsdbg": "./src/jsdbg.ts",
+    "mount": "./src/mount.ts",
 };
 
 // EDIT THIS ARRAY TO ADD DEPENDENCIES FOR THE VERSION CURRENTLY BEING BUILT
