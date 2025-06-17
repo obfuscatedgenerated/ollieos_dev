@@ -5,6 +5,7 @@ export default {
     description: "Toggles or sets nointro mode for quicker restarts.",
     usage_suffix: "[on|off]",
     arg_descriptions: {},
+    node_opt_out: true,
     main: async (data) => {
         // extract from data to make code less verbose
         const { term, args } = data;
