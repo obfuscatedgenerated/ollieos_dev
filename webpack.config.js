@@ -25,4 +25,39 @@ const homepage_url = "https://ollieg.codes";
 // value: the external name
 const externals = {};
 
-module.exports = pkgbuild(programs, deps, homepage_url, externals);
+const config = pkgbuild(programs, deps, homepage_url, externals);
+
+// weird fix, find and replace t(366)(o) with import(o) in exported bundle for mount
+// see mount.ts for why
+// this is a temporary workaround until a better solution is found
+const version = require("./package.json").version;
+config.plugins.push(
+    function () {
+        this.hooks.thisCompilation.tap('FindReplaceHook', (compilation) => {
+            compilation.hooks.processAssets.tap(
+                {
+                    name: 'FindReplaceHook',
+                    stage: compilation.constructor.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE,
+                },
+                (assets) => {
+                    const assetName = `./${version}/dev-mount-${version}.js`;
+
+                    if (assets[assetName]) {
+                        console.log(`PATCHING ${assetName}`);
+                        const asset = compilation.getAsset(assetName);
+                        const source = asset.source.source();
+
+                        const replacedSource = source.replace(/t\(366\)\(o\)/g, "import(o)");
+
+                        compilation.updateAsset(
+                            assetName,
+                            new compilation.compiler.webpack.sources.RawSource(replacedSource)
+                        );
+                    }
+                }
+            );
+        });
+    },
+);
+
+module.exports = config;

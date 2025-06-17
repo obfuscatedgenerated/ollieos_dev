@@ -34,7 +34,7 @@ export default {
         const registry = term.get_program_registry();
 
         // important note: for some reason webpack fucks up and drops the webpackIgnore: true
-        // you need to go into the exported bundle and edit anything like t(366) back to import
+        // we have a webpack hook to go into the exported bundle and edit anything like t(366)(o) back to import(o)
         // TODO: dont ask why, this needs fixing. might be easily done by moving this whole method onto the class instance so it doesnt do the weird import handling
         await mount_and_register_with_output(path, content, registry, term, true);
 
