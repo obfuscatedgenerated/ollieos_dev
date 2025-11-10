@@ -13,7 +13,7 @@ export default {
         // extract from data to make code less verbose
         const { term, args } = data;
 
-        const { STYLE, PREFABS, FG } = ANSI;
+        const { STYLE, PREFABS } = ANSI;
 
         // check if path is provided
         if (args.length === 0) {
