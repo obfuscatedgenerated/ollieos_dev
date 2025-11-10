@@ -10,6 +10,7 @@ const programs = {
     "nointro": "./src/nointro.ts",
     "jsdbg": "./src/jsdbg.ts",
     "mount": "./src/mount.ts",
+    "expose_term": "./src/expose_term.ts",
 };
 
 // EDIT THIS ARRAY TO ADD DEPENDENCIES FOR THE VERSION CURRENTLY BEING BUILT

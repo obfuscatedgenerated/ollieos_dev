@@ -2,6 +2,8 @@ import type { Program } from "ollieos/src/types";
 import {ANSI} from "ollieos/src/term_ctl";
 import {mount_and_register_with_output} from "ollieos/src/prog_registry";
 
+// TODO: update to ollieos#types
+
 export default {
     name: "mount",
     description: "Mounts OllieOS programs in the virtual filesystem as programs manually.",
@@ -13,7 +15,7 @@ export default {
         // extract from data to make code less verbose
         const { term, args } = data;
 
-        const { STYLE, PREFABS, FG } = ANSI;
+        const { STYLE, PREFABS } = ANSI;
 
         // check if path is provided
         if (args.length === 0) {
