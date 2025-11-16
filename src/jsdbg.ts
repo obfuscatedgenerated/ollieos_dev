@@ -1,7 +1,4 @@
-import type { Program } from "ollieos/src/types";
-import { ANSI } from "ollieos/src/term_ctl";
-
-// TODO: figure out how to fix webpack to stop yelling critical dependency warnings and bundling a lot of objects we don't need
+import type { Program } from "ollieos/types";
 
 export default {
     name: "jsdbg",
@@ -11,10 +8,10 @@ export default {
     node_opt_out: true,
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term} = data;
+        const { term } = data;
 
         // extract from ANSI to make code less verbose
-        const { FG, STYLE } = ANSI;
+        const { FG, STYLE } = term.ansi;
 
         // TODO: should this be moved to a feature of the OS? can use localStorage to store the state instead of using ollierc permananece, and easier toggling off.
         //  would also allow us to output mount time errors to the terminal

@@ -1,8 +1,4 @@
-import type { Program } from "ollieos/src/types";
-import {ANSI} from "ollieos/src/term_ctl";
-import {mount_and_register_with_output} from "ollieos/src/prog_registry";
-
-// TODO: update to ollieos#types
+import type { Program } from "ollieos/types";
 
 export default {
     name: "mount",
@@ -15,7 +11,7 @@ export default {
         // extract from data to make code less verbose
         const { term, args } = data;
 
-        const { STYLE, PREFABS } = ANSI;
+        const { STYLE, PREFABS } = term.ansi;
 
         // check if path is provided
         if (args.length === 0) {
@@ -34,11 +30,7 @@ export default {
         const content = fs.read_file(path) as string;
 
         const registry = term.get_program_registry();
-
-        // important note: for some reason webpack fucks up and drops the webpackIgnore: true
-        // we have a webpack hook to go into the exported bundle and edit anything like t(366)(o) back to import(o)
-        // TODO: dont ask why, this needs fixing. might be easily done by moving this whole method onto the class instance so it doesnt do the weird import handling
-        await mount_and_register_with_output(path, content, registry, term, true);
+        await registry.mount_and_register_with_output(path, content, term, true);
 
         return 0;
     }

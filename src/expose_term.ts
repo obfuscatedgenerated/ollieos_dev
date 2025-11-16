@@ -1,4 +1,4 @@
-import type { Program } from "ollieos/src/types";
+import type { Program } from "ollieos/types";
 
 export default {
     name: "expose_term",
