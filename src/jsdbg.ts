@@ -5,7 +5,6 @@ export default {
     description: "Redirects the JavaScript console to the terminal until the OS is restarted. Add me to .ollierc to make it permanent (only runs after mount time, check JS console for mount issues).",
     usage_suffix: "",
     arg_descriptions: {},
-    node_opt_out: true,
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;
