@@ -1,5 +1,7 @@
 # OllieOS Dev Group
 
+`pkg add dev`
+
 The OllieOS development tool group.
 
 ## Programs and subpackages
