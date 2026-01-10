@@ -7,9 +7,10 @@ export default {
     arg_descriptions: {
         "path": "The path to the program to mount."
     },
+    compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
-        const { term, args } = data;
+        const { kernel, term, args } = data;
 
         const { STYLE, PREFABS } = term.ansi;
 
@@ -19,17 +20,17 @@ export default {
             return 1;
         }
 
-        const fs = term.get_fs();
+        const fs = kernel.get_fs();
         const path = fs.absolute(args[0]);
 
-        if (!fs.exists(path)) {
+        if (!await fs.exists(path)) {
             term.writeln(`${PREFABS.error}Path '${path}' does not exist.${STYLE.reset_all}`);
             return 1;
         }
 
-        const content = fs.read_file(path) as string;
+        const content = await fs.read_file(path) as string;
 
-        const registry = term.get_program_registry();
+        const registry = kernel.get_program_registry();
         await registry.mount_and_register_with_output(path, content, term, true);
 
         return 0;

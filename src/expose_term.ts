@@ -6,6 +6,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     node_opt_out: true,
+    compat: "2.0.0",
     main: async (data) => {
         // @ts-ignore
         window.term = data.term;

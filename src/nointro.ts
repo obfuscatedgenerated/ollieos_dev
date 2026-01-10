@@ -6,6 +6,7 @@ export default {
     usage_suffix: "[on|off]",
     arg_descriptions: {},
     node_opt_out: true,
+    compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { term, args } = data;
