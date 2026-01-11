@@ -18,7 +18,7 @@ export default {
     compat: "2.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
-        const { kernel, term, args } = data;
+        const { kernel, term, args, process } = data;
 
         const { STYLE, PREFABS, FG } = term.ansi;
 
@@ -176,6 +176,7 @@ export default {
             }
         }
 
+        process.detach();
         return 0;
     }
 } as Program;
