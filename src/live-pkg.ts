@@ -35,12 +35,12 @@ export default {
         try {
             const file_data = await fetch(new URL("/list", url).toString());
             if (!file_data.ok) {
-                throw new Error("Failed to fetch file list. Is ollieos-pkg-serve running?");
+                throw new Error("Failed to fetch file list.");
             }
 
             file_list = await file_data.json() as string[];
         } catch (e) {
-            term.writeln(`${PREFABS.error}Failed to fetch file list from server: ${(e as Error).message}${STYLE.reset_all}`);
+            term.writeln(`${PREFABS.error}Failed to fetch file list from server: ${(e as Error).message}${STYLE.reset_all} Is ollieos-pkg-serve running?`);
             return 1;
         }
 
