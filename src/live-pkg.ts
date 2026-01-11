@@ -1,10 +1,10 @@
 import type { Program } from "ollieos/types";
 
 // TODO: overrideable pkg dir
-const PKG_DIR = "/usr/bin/live-pkg-tmp/";
+const PKG_DIR = "/tmp/live-pkg";
 
 interface PkgServerMessage {
-    type: "added" | "modified" | "deleted";
+    event: "added" | "modified" | "deleted";
     file: string;
 }
 
@@ -127,7 +127,7 @@ export default {
                 return;
             }
 
-            switch (message.type) {
+            switch (message.event) {
                 case "added":
                 case "modified": {
                     try {
@@ -182,8 +182,16 @@ export default {
             }
         }
 
+        // kill process on ws close
+        ws.onclose = () => {
+            process.kill(0);
+        };
+
         term.writeln(`Ready. Listening for package changes (for version ${version}) from ollieos-pkg-serve in the background...`);
         process.detach();
+
         return 0;
     }
 } as Program;
+
+// TODO: could unmount programs and delete pkg dir on exit
