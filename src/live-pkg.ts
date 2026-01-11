@@ -48,7 +48,7 @@ export default {
 
         // if the pkg dir exists, delete it
         if (await fs.exists(PKG_DIR)) {
-            await fs.delete_dir(PKG_DIR);
+            await fs.delete_dir(PKG_DIR, true);
         }
 
         await fs.make_dir(PKG_DIR);
@@ -63,6 +63,10 @@ export default {
 
             const pkg_json = await pkg_data.json() as { latest_version: string };
             version = pkg_json.latest_version;
+
+            // write pkg.json to the pkg dir
+            const pkg_path = fs.join(PKG_DIR, "pkg.json");
+            await fs.write_file(pkg_path, JSON.stringify(pkg_json, null, 2));
         } catch (e) {
             term.writeln(`${PREFABS.error}Failed to fetch pkg.json: ${(e as Error).message}${STYLE.reset_all}`);
             return 1;
@@ -176,6 +180,7 @@ export default {
             }
         }
 
+        term.writeln("Ready. Listening for package changes from ollieos-pkg-serve in the background...");
         process.detach();
         return 0;
     }
