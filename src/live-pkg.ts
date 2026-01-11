@@ -53,16 +53,50 @@ export default {
 
         await fs.make_dir(PKG_DIR);
 
+        // first, fetch pkg.json to determine latest version
+        let version: string;
+        try {
+            const pkg_data = await fetch(new URL("pkg.json", url).toString());
+            if (!pkg_data.ok) {
+                throw new Error("Failed to fetch pkg.json");
+            }
+
+            const pkg_json = await pkg_data.json() as { latest_version: string };
+            version = pkg_json.latest_version;
+        } catch (e) {
+            term.writeln(`${PREFABS.error}Failed to fetch pkg.json: ${(e as Error).message}${STYLE.reset_all}`);
+            return 1;
+        }
+
+        if (!version) {
+            term.writeln(`${PREFABS.error}pkg.json does not specify a latest_version.${STYLE.reset_all}`);
+            return 1;
+        }
+
         // download initial files into the pkg dir
         for (const file of file_list) {
+            // skip pkg.json (already fetched)
+            if (file === "pkg.json") {
+                continue;
+            }
+
+            // skip files that are not in the latest version folder
+            // TODO: move this to a url param that the server filters on its end
+            if (!file.startsWith(`${version}/`)) {
+                continue;
+            }
+
             try {
-                const file_data = await fetch(new URL(`/file/${file}`, url).toString());
+                const file_data = await fetch(new URL(file, url).toString());
                 if (!file_data.ok) {
                     throw new Error(`Failed to fetch file '${file}'`);
                 }
 
                 const content = await file_data.text();
-                await fs.write_file(fs.join(PKG_DIR, file), content);
+
+                // remove the version prefix from the file path
+                const file_path = fs.join(PKG_DIR, file.substring(file.indexOf("/") + 1));
+                await fs.write_file(file_path, content);
             } catch (e) {
                 term.writeln(`${FG.yellow}Failed to fetch file '${file}': ${(e as Error).message}${STYLE.reset_all}`);
             }
@@ -82,6 +116,11 @@ export default {
         ws.onmessage = async (event) => {
             const message = JSON.parse(event.data) as PkgServerMessage;
 
+            // ignore files that aren't in the latest version folder or are pkg.json
+            if (message.file === "pkg.json" || !message.file.startsWith(`${version}/`)) {
+                return;
+            }
+
             switch (message.type) {
                 case "added":
                 case "modified": {
@@ -89,6 +128,16 @@ export default {
                         const file_data = await fetch(new URL(message.file, url).toString());
                         if (!file_data.ok) {
                             throw new Error(`Failed to fetch file '${message.file}'`);
+                        }
+
+                        // if file is pkg.json, check that latest_version hasn't changed
+                        if (message.file === "pkg.json") {
+                            const pkg_json = await file_data.json() as { latest_version: string };
+                            if (pkg_json.latest_version !== version) {
+                                term.writeln(`${FG.yellow}Warning: latest_version has changed from ${version} to ${pkg_json.latest_version}. Please restart live-pkg to update to the new version.${STYLE.reset_all}`);
+                            }
+
+                            return;
                         }
 
                         const content = await file_data.text();
