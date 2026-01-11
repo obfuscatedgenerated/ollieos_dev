@@ -91,7 +91,7 @@ export default {
             }
 
             try {
-                const file_data = await fetch(new URL(file, url).toString());
+                const file_data = await fetch(new URL(file, url).toString(), {cache: "no-store"});
                 if (!file_data.ok) {
                     throw new Error(`Failed to fetch file '${file}'`);
                 }
@@ -106,6 +106,10 @@ export default {
             }
         }
 
+        // mount all js files in the pkg dir
+        const prog_reg = kernel.get_program_registry();
+        await prog_reg.recurse_mount_and_register_with_output(fs, PKG_DIR, term);
+
         // open a websocket to listen for changes, or nope out if it fails
         let ws: WebSocket;
         try {
@@ -114,8 +118,6 @@ export default {
             term.writeln(`${PREFABS.error}Failed to open WebSocket to server: ${(e as Error).message}${STYLE.reset_all} (However, the package has been downloaded to ${PKG_DIR})`);
             return 1;
         }
-
-        const prog_reg = kernel.get_program_registry();
 
         ws.onmessage = async (event) => {
             const message = JSON.parse(event.data) as PkgServerMessage;
@@ -129,7 +131,7 @@ export default {
                 case "added":
                 case "modified": {
                     try {
-                        const file_data = await fetch(new URL(message.file, url).toString());
+                        const file_data = await fetch(new URL(message.file, url).toString(), {cache: "no-store"});
                         if (!file_data.ok) {
                             throw new Error(`Failed to fetch file '${message.file}'`);
                         }
@@ -180,7 +182,7 @@ export default {
             }
         }
 
-        term.writeln("Ready. Listening for package changes from ollieos-pkg-serve in the background...");
+        term.writeln(`Ready. Listening for package changes (for version ${version}) from ollieos-pkg-serve in the background...`);
         process.detach();
         return 0;
     }
