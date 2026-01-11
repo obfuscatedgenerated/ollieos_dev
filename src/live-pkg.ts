@@ -1,4 +1,7 @@
 import type { Program } from "ollieos/types";
+import type {AbstractFileSystem} from "ollieos/filesystem";
+import type {WrappedTerminal} from "ollieos/term_ctl";
+import type {ProgramRegistry} from "ollieos/prog_registry";
 
 // TODO: overrideable pkg dir
 const PKG_DIR = "/tmp/live-pkg";
@@ -6,6 +9,21 @@ const PKG_DIR = "/tmp/live-pkg";
 interface PkgServerMessage {
     event: "added" | "modified" | "deleted";
     file: string;
+}
+
+const unmount_then_mount = async (prog_reg: ProgramRegistry, fs: AbstractFileSystem, term: WrappedTerminal, file_path: string) => {
+    const file_content = await fs.read_file(file_path) as string;
+
+    // first try to unregister
+    try {
+        const name = await prog_reg.determine_program_name_from_js(file_content);
+        prog_reg.forceUnregister(name);
+    } catch {
+        // ignore errors here
+    }
+
+    // then mount and register
+    await prog_reg.mount_and_register_with_output(file_path, file_content, term, true);
 }
 
 export default {
@@ -106,9 +124,22 @@ export default {
             }
         }
 
-        // mount all js files in the pkg dir
         const prog_reg = kernel.get_program_registry();
-        await prog_reg.recurse_mount_and_register_with_output(fs, PKG_DIR, term);
+
+        // mount all js files in the pkg dir
+        const walk_and_mount = async (dir: string) => {
+            const entries = await fs.list_dir(dir);
+            for (const entry of entries) {
+                const entry_path = fs.join(dir, entry);
+
+                if (await fs.dir_exists(entry_path)) {
+                    await walk_and_mount(entry_path);
+                } else if (entry.endsWith(".js")) {
+                    await unmount_then_mount(prog_reg, fs, term, entry_path);
+                }
+            }
+        };
+        await walk_and_mount(PKG_DIR);
 
         // open a websocket to listen for changes, or nope out if it fails
         let ws: WebSocket;
@@ -151,7 +182,9 @@ export default {
                         await fs.write_file(file_path, content);
 
                         // if this was a js file, try mounting the program
-                        await prog_reg.mount_and_register_with_output(file_path, content, term, true);
+                        if (message.file.endsWith(".js")) {
+                            await unmount_then_mount(prog_reg, fs, term, file_path);
+                        }
                     } catch (e) {
                         term.writeln(`${FG.yellow}Failed to fetch file '${message.file}': ${(e as Error).message}${STYLE.reset_all}`);
                     }
@@ -165,7 +198,7 @@ export default {
                         if (message.file.endsWith(".js")) {
                             try {
                                 const name = await prog_reg.determine_program_name_from_js(await fs.read_file(file_path) as string);
-                                prog_reg.unregister(name);
+                                prog_reg.forceUnregister(name);
                             } catch {
                                 // ignore errors here
                             }
@@ -195,3 +228,4 @@ export default {
 } as Program;
 
 // TODO: could unmount programs and delete pkg dir on exit
+// TODO: lockfile
