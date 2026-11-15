@@ -6,7 +6,9 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     node_opt_out: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
+    space: "kernel",
+    reason: "Exposes the real kernel object to the JavaScript console, giving it full control of the OS.",
     main: async (data) => {
         // @ts-ignore
         window.kernel = data.kernel;

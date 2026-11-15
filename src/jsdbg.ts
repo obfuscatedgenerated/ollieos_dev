@@ -2,10 +2,12 @@ import type { Program } from "ollieos/types";
 
 export default {
     name: "jsdbg",
-    description: "Redirects the JavaScript console to the terminal until the OS is restarted. Add me to .ollierc to make it permanent (only runs after mount time, check JS console for mount issues).",
+    description: "Redirects the JavaScript console to the terminal until the OS is restarted. Add me to .ollierc to make it permanent.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
+    space: "kernel",
+    reason: "Redirecting the console means replacing the OS's own console functions.",
     main: async (data) => {
         // extract from data to make code less verbose
         const { term } = data;

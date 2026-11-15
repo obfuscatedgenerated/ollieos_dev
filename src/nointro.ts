@@ -6,7 +6,9 @@ export default {
     usage_suffix: "[on|off]",
     arg_descriptions: {},
     node_opt_out: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
+    space: "kernel",
+    reason: "nointro is stored in the OS's local storage, which isolated programs can't reach.",
     main: async (data) => {
         // extract from data to make code less verbose
         const { term, args } = data;

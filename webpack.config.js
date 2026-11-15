@@ -9,7 +9,6 @@ const pkgbuild = require("ollieos_pkgbuild");
 const programs = {
     "nointro": "./src/nointro.ts",
     "jsdbg": "./src/jsdbg.ts",
-    "mount": "./src/mount.ts",
     "expose_term": "./src/expose_term.ts",
     "expose_kernel": "./src/expose_kernel.ts",
     "live-pkg": "./src/live-pkg.ts",

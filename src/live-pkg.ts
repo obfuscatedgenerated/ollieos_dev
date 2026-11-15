@@ -1,29 +1,15 @@
 import type { Program } from "ollieos/types";
-import type {AbstractFileSystem} from "ollieos/filesystem";
-import type {WrappedTerminal} from "ollieos/term_ctl";
-import type {ProgramRegistry} from "ollieos/prog_registry";
 
 // TODO: overrideable pkg dir
 const PKG_DIR = "/tmp/live-pkg";
+const LIB_DIR = "/usr/lib";
+
+// marks a package dir as written by live-pkg, so it is never mistaken for (or written over) a real install
+const LIVE_MARKER = ".live-pkg";
 
 interface PkgServerMessage {
     event: "added" | "modified" | "deleted";
     file: string;
-}
-
-const unmount_then_mount = async (prog_reg: ProgramRegistry, fs: AbstractFileSystem, term: WrappedTerminal, file_path: string) => {
-    const file_content = await fs.read_file(file_path) as string;
-
-    // first try to unregister
-    try {
-        const name = await prog_reg.determine_program_name_from_js(file_content);
-        prog_reg.forceUnregister(name);
-    } catch {
-        // ignore errors here
-    }
-
-    // then mount and register
-    await prog_reg.mount_and_register_with_output(file_path, file_content, term, true);
 }
 
 export default {
@@ -33,7 +19,7 @@ export default {
     arg_descriptions: {
         "url": "Optional URL that ollieos-pkg-serve is running on, instead of the default http://localhost:3006"
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, term, args, process } = data;
@@ -48,8 +34,9 @@ export default {
             return 1;
         }
 
-        // get the list of files from the server, or nope out if it fails
+        // get the list of files and the package name from the server, or nope out if it fails
         let file_list: string[];
+        let pkg_name: string;
         try {
             const file_data = await fetch(new URL("/list", url).toString());
             if (!file_data.ok) {
@@ -57,19 +44,42 @@ export default {
             }
 
             file_list = await file_data.json() as string[];
+
+            const name_data = await fetch(new URL("/name", url).toString());
+            if (!name_data.ok) {
+                throw new Error("Failed to fetch the package name. Update ollieos_pkgbuild in your package.");
+            }
+
+            pkg_name = await name_data.json() as string;
         } catch (e) {
-            term.writeln(`${PREFABS.error}Failed to fetch file list from server: ${(e as Error).message}${STYLE.reset_all} Is ollieos-pkg-serve running?`);
+            term.writeln(`${PREFABS.error}Failed to fetch package info from server: ${(e as Error).message}${STYLE.reset_all} Is ollieos-pkg-serve running?`);
+            return 1;
+        }
+
+        if (typeof pkg_name !== "string" || pkg_name === "" || pkg_name.includes("/") || pkg_name.includes("..")) {
+            term.writeln(`${PREFABS.error}The server gave an invalid package name.${STYLE.reset_all}`);
             return 1;
         }
 
         const fs = kernel.get_fs();
+        const lib_dir = fs.join(LIB_DIR, pkg_name);
 
-        // if the pkg dir exists, delete it
-        if (await fs.exists(PKG_DIR)) {
-            await fs.delete_dir(PKG_DIR, true);
+        // additional files go where an install would put them, so programs find them the same way. never write over a real install
+        if (await fs.exists(lib_dir) && !await fs.exists(fs.join(lib_dir, LIVE_MARKER))) {
+            term.writeln(`${PREFABS.error}Package '${pkg_name}' is installed. Remove it first (pkg remove ${pkg_name}) so live-pkg doesn't write over it.${STYLE.reset_all}`);
+            return 1;
         }
 
-        await fs.make_dir(PKG_DIR);
+        // clear out anything left from a previous run
+        for (const dir of [PKG_DIR, lib_dir]) {
+            if (await fs.exists(dir)) {
+                await fs.delete_dir(dir, true);
+            }
+
+            await fs.make_dir(dir);
+        }
+
+        await fs.write_file(fs.join(lib_dir, LIVE_MARKER), "");
 
         // first, fetch pkg.json to determine latest version
         let version: string;
@@ -82,9 +92,8 @@ export default {
             const pkg_json = await pkg_data.json() as { latest_version: string };
             version = pkg_json.latest_version;
 
-            // write pkg.json to the pkg dir
-            const pkg_path = fs.join(PKG_DIR, "pkg.json");
-            await fs.write_file(pkg_path, JSON.stringify(pkg_json, null, 2));
+            // write pkg.json to the package dir, as an install would
+            await fs.write_file(fs.join(lib_dir, "pkg.json"), JSON.stringify(pkg_json, null, 2));
         } catch (e) {
             term.writeln(`${PREFABS.error}Failed to fetch pkg.json: ${(e as Error).message}${STYLE.reset_all}`);
             return 1;
@@ -95,51 +104,54 @@ export default {
             return 1;
         }
 
-        // download initial files into the pkg dir
-        for (const file of file_list) {
-            // skip pkg.json (already fetched)
-            if (file === "pkg.json") {
-                continue;
+        const version_prefix = `${version}/`;
+
+        // programs are top level <name>.js files, with their <name>.json beside them
+        const program_names = new Set(
+            file_list
+                .filter((file) => file.startsWith(version_prefix))
+                .map((file) => file.slice(version_prefix.length))
+                .filter((file) => !file.includes("/") && file.endsWith(".js"))
+                .map((file) => file.slice(0, -".js".length))
+        );
+
+        // programs go in the pkg dir to be run by path, everything else in the package dir
+        const local_path_of = (file_in_version: string): string => {
+            const is_top_level = !file_in_version.includes("/");
+            const program_name = file_in_version.replace(/\.(js|json)$/, "");
+
+            if (is_top_level && (file_in_version.endsWith(".js") || (file_in_version.endsWith(".json") && program_names.has(program_name)))) {
+                return fs.join(PKG_DIR, file_in_version);
             }
 
-            // skip files that are not in the latest version folder
+            return fs.join(lib_dir, file_in_version);
+        };
+
+        // fetched as bytes so binary files survive
+        const download = async (file: string): Promise<void> => {
+            const file_data = await fetch(new URL(file, url).toString(), {cache: "no-store"});
+            if (!file_data.ok) {
+                throw new Error(`Failed to fetch file '${file}'`);
+            }
+
+            const content = new Uint8Array(await file_data.arrayBuffer());
+            await fs.write_file(local_path_of(file.slice(version_prefix.length)), content);
+        };
+
+        // download initial files
+        for (const file of file_list) {
+            // skip files that are not in the latest version folder (this also skips pkg.json, which was already fetched)
             // TODO: move this to a url param that the server filters on its end
-            if (!file.startsWith(`${version}/`)) {
+            if (!file.startsWith(version_prefix)) {
                 continue;
             }
 
             try {
-                const file_data = await fetch(new URL(file, url).toString(), {cache: "no-store"});
-                if (!file_data.ok) {
-                    throw new Error(`Failed to fetch file '${file}'`);
-                }
-
-                const content = await file_data.text();
-
-                // remove the version prefix from the file path
-                const file_path = fs.join(PKG_DIR, file.substring(file.indexOf("/") + 1));
-                await fs.write_file(file_path, content);
+                await download(file);
             } catch (e) {
                 term.writeln(`${FG.yellow}Failed to fetch file '${file}': ${(e as Error).message}${STYLE.reset_all}`);
             }
         }
-
-        const prog_reg = kernel.get_program_registry();
-
-        // mount all js files in the pkg dir
-        const walk_and_mount = async (dir: string) => {
-            const entries = await fs.list_dir(dir);
-            for (const entry of entries) {
-                const entry_path = fs.join(dir, entry);
-
-                if (await fs.dir_exists(entry_path)) {
-                    await walk_and_mount(entry_path);
-                } else if (entry.endsWith(".js")) {
-                    await unmount_then_mount(prog_reg, fs, term, entry_path);
-                }
-            }
-        };
-        await walk_and_mount(PKG_DIR);
 
         // open a websocket to listen for changes, or nope out if it fails
         let ws: WebSocket;
@@ -153,38 +165,41 @@ export default {
         ws.onmessage = async (event) => {
             const message = JSON.parse(event.data) as PkgServerMessage;
 
-            // ignore files that aren't in the latest version folder or are pkg.json
-            if (message.file === "pkg.json" || !message.file.startsWith(`${version}/`)) {
+            // warn if the version being served has changed
+            if (message.file === "pkg.json" && message.event !== "deleted") {
+                try {
+                    const pkg_data = await fetch(new URL("pkg.json", url).toString(), {cache: "no-store"});
+                    const pkg_json = await pkg_data.json() as { latest_version: string };
+                    if (pkg_json.latest_version !== version) {
+                        term.writeln(`${FG.yellow}Warning: latest_version has changed from ${version} to ${pkg_json.latest_version}. Please restart live-pkg to update to the new version.${STYLE.reset_all}`);
+                    }
+                } catch {
+                    // ignore errors here
+                }
+
                 return;
             }
+
+            // ignore files that aren't in the latest version folder
+            if (!message.file.startsWith(version_prefix)) {
+                return;
+            }
+
+            const file_in_version = message.file.slice(version_prefix.length);
 
             switch (message.event) {
                 case "added":
                 case "modified": {
+                    if (!file_in_version.includes("/") && file_in_version.endsWith(".js")) {
+                        const program_name = file_in_version.slice(0, -".js".length);
+                        if (!program_names.has(program_name)) {
+                            program_names.add(program_name);
+                            term.writeln(`${FG.cyan}New program: run it with ${fs.join(PKG_DIR, program_name)}${STYLE.reset_all}`);
+                        }
+                    }
+
                     try {
-                        const file_data = await fetch(new URL(message.file, url).toString(), {cache: "no-store"});
-                        if (!file_data.ok) {
-                            throw new Error(`Failed to fetch file '${message.file}'`);
-                        }
-
-                        // if file is pkg.json, check that latest_version hasn't changed
-                        if (message.file === "pkg.json") {
-                            const pkg_json = await file_data.json() as { latest_version: string };
-                            if (pkg_json.latest_version !== version) {
-                                term.writeln(`${FG.yellow}Warning: latest_version has changed from ${version} to ${pkg_json.latest_version}. Please restart live-pkg to update to the new version.${STYLE.reset_all}`);
-                            }
-
-                            return;
-                        }
-
-                        const content = await file_data.text();
-                        const file_path = fs.join(PKG_DIR, message.file);
-                        await fs.write_file(file_path, content);
-
-                        // if this was a js file, try mounting the program
-                        if (message.file.endsWith(".js")) {
-                            await unmount_then_mount(prog_reg, fs, term, file_path);
-                        }
+                        await download(message.file);
                     } catch (e) {
                         term.writeln(`${FG.yellow}Failed to fetch file '${message.file}': ${(e as Error).message}${STYLE.reset_all}`);
                     }
@@ -192,18 +207,7 @@ export default {
                 }
                 case "deleted": {
                     try {
-                        const file_path = fs.join(PKG_DIR, message.file);
-
-                        // if this was a js file, try to determine the program name and unregister it
-                        if (message.file.endsWith(".js")) {
-                            try {
-                                const name = await prog_reg.determine_program_name_from_js(await fs.read_file(file_path) as string);
-                                prog_reg.forceUnregister(name);
-                            } catch {
-                                // ignore errors here
-                            }
-                        }
-
+                        const file_path = local_path_of(file_in_version);
                         if (await fs.exists(file_path)) {
                             await fs.delete_file(file_path);
                         }
@@ -220,12 +224,15 @@ export default {
             process.kill(0);
         };
 
+        for (const program_name of program_names) {
+            term.writeln(`Run ${program_name} with: ${FG.cyan}${fs.join(PKG_DIR, program_name)}${STYLE.reset_all}`);
+        }
+
         term.writeln(`Ready. Listening for package changes (for version ${version}) from ollieos-pkg-serve in the background...`);
         process.detach();
 
         return 0;
     }
-} as Program;
+} satisfies Program;
 
-// TODO: could unmount programs and delete pkg dir on exit
-// TODO: lockfile
+// TODO: could delete the pkg and package dirs on exit
