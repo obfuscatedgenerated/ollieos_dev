@@ -20,7 +20,9 @@ export default {
         "url": "Optional URL that ollieos-pkg-serve is running on, instead of the default http://localhost:3006"
     },
     compat: "3.0.0",
-    needs_loopback: true,
+    //needs_loopback: true,
+    space: "kernel",
+    reason: "Writes to package directories",
     main: async (data) => {
         // extract from data to make code less verbose
         const { kernel, term, args, process } = data;
